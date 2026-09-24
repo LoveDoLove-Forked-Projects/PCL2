@@ -1814,15 +1814,14 @@ Retry:
     End Sub
     Public Sub McInstallFailedClearFolder(Loader)
         Try
+            If Loader.State <> LoadState.Failed AndAlso Loader.State <> LoadState.Canceled Then Return
             Thread.Sleep(1000) '防止存在尚未完全释放的文件，导致清理失败（例如整合包安装）
-            If Loader.State = LoadState.Failed OrElse Loader.State = LoadState.Canceled Then
-                '删除版本文件夹
-                If DirectoryUtils.Exists(Loader.Input & "saves\") OrElse DirectoryUtils.Exists(Loader.Input & "versions\") Then
-                    Logger.Warn($"由于版本已被独立启动，不清理版本文件夹：{Loader.Input}")
-                Else
-                    Logger.Warn($"由于下载失败或取消，清理版本文件夹：{Loader.Input}")
-                    DirectoryUtils.Delete(Loader.Input)
-                End If
+            '删除版本文件夹
+            If DirectoryUtils.Exists(Loader.Input & "saves\") OrElse DirectoryUtils.Exists(Loader.Input & "versions\") Then
+                Logger.Warn($"由于版本已被独立启动，不清理版本文件夹：{Loader.Input}")
+            Else
+                Logger.Warn($"由于下载失败或取消，清理版本文件夹：{Loader.Input}")
+                DirectoryUtils.Delete(Loader.Input)
             End If
         Catch ex As Exception
             Logger.Warn(ex, "下载失败或取消后清理版本文件夹失败")
