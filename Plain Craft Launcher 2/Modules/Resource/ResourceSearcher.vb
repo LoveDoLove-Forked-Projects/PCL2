@@ -378,12 +378,23 @@ NextPage:
                             If Request.Type <> ResourceTypes.Any AndAlso Not Project.Types.HasFlagF(Request.Type) Then Continue For
                             If Not String.IsNullOrEmpty(Request.Tag) AndAlso
                                 Not JsonEntry("categories").Any(Function(c) c.ToString = Request.Tag.AfterLast("/")) Then Continue For 'Project.Tags 已经转换成中文了，只能从 json 判
-                            If Request.ModLoaders <> ModLoaders.None AndAlso Not IgnoreModLoaderFilter AndAlso
-                                Not Project.ModLoaders.Flags.Intersect(Request.ModLoaders.Flags).Any() Then Continue For
-                            If Not String.IsNullOrEmpty(Request.GameVersion) AndAlso
-                                Not Project.UnsafeGameVersions.Any(Function(d) d = Request.GameVersion) Then Continue For
                             ProjectList.Add(Project)
                         Next
+                        Dim Facets As New List(Of String)
+                        If Request.ModLoaders <> ModLoaders.None AndAlso Not IgnoreModLoaderFilter Then
+                            Facets.Add($"[""categories:'{Request.ModLoaders.Flags.Select(Function(f) f.ToString.Lower).Join("'"",""categories:'")}'""]")
+                        End If
+                        If Not String.IsNullOrEmpty(Request.GameVersion) Then Facets.Add($"[""versions:'{Request.GameVersion}'""]")
+                        If ProjectList.Any AndAlso Facets.Any Then
+                            Facets.Add("[""project_id:" & ProjectList.Select(Function(p) p.Id).Join(""",""project_id:") & """]")
+                            Dim FilterUrl As String = $"https://api.modrinth.com/v2/search?limit={Math.Min(ProjectList.Count, 100)}&facets=[" & String.Join(",", Facets) & "]"
+                            Logger.Info($"开始 Modrinth 直接获取筛选：{FilterUrl}")
+                            Dim MatchedIds As New List(Of String)
+                            For Each JsonEntry As JObject In DlModRequest(FilterUrl)("hits")
+                                MatchedIds.Add(JsonEntry("project_id").ToString)
+                            Next
+                            ProjectList.KeepIf(Function(p) MatchedIds.Contains(p.Id))
+                        End If
                         '更新结果
                         ProjectList.ForEach(Sub(p) SearchResults.Add(p))
                         Logger.Info($"从 Modrinth 直接获取到了 {ProjectList.Count} 个工程")
